@@ -14,7 +14,7 @@ export default function Home() {
         showsVerticalScrollIndicator={false}>
         
         <View style={styles.header}>
-          <Text style={styles.greeting}>Olá, Ana Clara...</Text>
+          <Text style={styles.greeting}>Olá, Ana Clara.</Text>
           <Text style={styles.subGreeting}>Como você está hoje?</Text>
         </View>
 
