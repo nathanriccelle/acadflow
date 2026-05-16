@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  TextInput, 
-  Pressable, 
-  KeyboardAvoidingView, 
-  Platform, 
-  ScrollView 
+import {
+  View,
+  Text,
+  StyleSheet,
+  TextInput,
+  Pressable,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft, Lock, Leaf } from 'lucide-react-native';
@@ -16,34 +18,44 @@ import { useRouter } from 'expo-router';
 import { Colors } from '../../constants/colors';
 import { Fonts } from '../../constants/fonts';
 import AvisoMural from '../../components/AvisoMural';
+import { useAuth } from '../../contexts/AuthContext';
+import { MAX_TEXTO } from '../../services/muralService';
+import { useMuralStore } from '../../store/useMuralStore';
 
 export default function NovoDesabafo() {
   const router = useRouter();
+  const { user } = useAuth();
+  const { publicar, saving } = useMuralStore();
 
   const [textoDesabafo, setTextoDesabafo] = useState('');
 
-  const handlePublicar = () => {
+  const handlePublicar = async () => {
+    if (!user || textoDesabafo.trim() === '') return;
 
-    if (textoDesabafo.trim() === '') {
-      return; 
+    if (textoDesabafo.trim().length > MAX_TEXTO) {
+      Alert.alert('Atenção', `O texto pode ter no máximo ${MAX_TEXTO} caracteres.`);
+      return;
     }
 
-    // Futura integração com Firebase:
-
-    setTextoDesabafo('');
-    router.back();
+    try {
+      await publicar(user.uid, textoDesabafo);
+      setTextoDesabafo('');
+      router.back();
+    } catch {
+      Alert.alert('Erro', 'Não foi possível publicar. Tente novamente.');
+    }
   };
+
+  const disabled = textoDesabafo.trim() === '' || saving;
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <KeyboardAvoidingView 
-        style={styles.container} 
+      <KeyboardAvoidingView
+        style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        
-        {/* Header */}
         <View style={styles.header}>
-          <Pressable 
+          <Pressable
             style={({ pressed }) => [styles.backButton, pressed && styles.pressedEffect]}
             onPress={() => router.back()}
           >
@@ -53,13 +65,12 @@ export default function NovoDesabafo() {
           <View style={{ width: 24 }} />
         </View>
 
-        <ScrollView 
+        <ScrollView
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          
-          <AvisoMural 
+          <AvisoMural
             comFundo={true}
             icone={<Lock size={20} color={Colors.accentPrimary} />}
             texto="Sua postagem será 100% anônima. Sinta-se seguro(a) para se expressar."
@@ -70,33 +81,40 @@ export default function NovoDesabafo() {
               style={styles.textInput}
               placeholder="O que está no seu coração hoje?"
               placeholderTextColor={Colors.fontTertiary}
-              multiline={true}
+              multiline
               value={textoDesabafo}
               onChangeText={setTextoDesabafo}
               textAlignVertical="top"
+              maxLength={MAX_TEXTO}
             />
+            <Text style={styles.charCount}>
+              {textoDesabafo.length}/{MAX_TEXTO}
+            </Text>
           </View>
 
-          <Pressable 
+          <Pressable
             style={({ pressed }) => [
-              styles.publishButton, 
+              styles.publishButton,
               pressed && styles.pressedEffect,
-              textoDesabafo.trim() === '' && { opacity: 0.5 }
+              disabled && { opacity: 0.5 },
             ]}
             onPress={handlePublicar}
-            disabled={textoDesabafo.trim() === ''}
+            disabled={disabled}
           >
-            <Text style={styles.publishButtonText}>Publicar</Text>
+            {saving ? (
+              <ActivityIndicator color={Colors.white} />
+            ) : (
+              <Text style={styles.publishButtonText}>Publicar</Text>
+            )}
           </Pressable>
 
           <View style={styles.footerNote}>
-            <AvisoMural 
+            <AvisoMural
               comFundo={false}
               icone={<Leaf size={20} color={Colors.accentPrimary} />}
               texto="Lembre-se: este é um espaço de apoio. Seja gentil."
             />
           </View>
-
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -144,6 +162,14 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: Colors.fontPrimary,
     lineHeight: 24,
+    minHeight: 220,
+  },
+  charCount: {
+    fontFamily: Fonts.bodyRegular,
+    fontSize: 12,
+    color: Colors.fontTertiary,
+    textAlign: 'right',
+    marginTop: 8,
   },
   publishButton: {
     backgroundColor: Colors.accentPrimary,

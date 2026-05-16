@@ -1,9 +1,17 @@
-import { View, Text } from 'react-native';
+import { Redirect, Stack } from 'expo-router';
+import { useAuth } from '../../contexts/AuthContext';
 
-export default function Cadastro() {
+export default function AuthLayout() {
+  const { user, loading } = useAuth();
+
+  if (loading) return null;
+
+  if (user) return <Redirect href="/" />;
+
   return (
-    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-      <Text>Conteúdo da Página de Cadastro</Text>
-    </View>
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="login" />
+      <Stack.Screen name="register" />
+    </Stack>
   );
 }

@@ -1,23 +1,32 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, Pressable, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft, ArrowRight } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 
 import { Colors } from '../../constants/colors';
 import { Fonts } from '../../constants/fonts';
-
 import StepItem from '../../components/StepItem';
+import { useAuth } from '../../contexts/AuthContext';
+import {
+  DURACAO_SESSAO_SEGUNDOS,
+  saveCompletedSession,
+} from '../../services/breathingService';
+import { useMoodStore } from '../../store/useMoodStore';
 
 export default function Respiracao() {
   const router = useRouter();
+  const { user } = useAuth();
+  const inicializarMood = useMoodStore((state) => state.inicializar);
 
   const [isActive, setIsActive] = useState(true);
   const [currentPhase, setCurrentPhase] = useState<'inspire' | 'hold' | 'expire'>('inspire');
   const [phaseTimeLeft, setPhaseTimeLeft] = useState(4);
-  const [sessionTimeLeft, setSessionTimeLeft] = useState(134);
+  const [sessionTimeLeft, setSessionTimeLeft] = useState(DURACAO_SESSAO_SEGUNDOS);
+  const [salvando, setSalvando] = useState(false);
 
-  // Lógica do Cronômetro
+  const sessaoSalvaRef = useRef(false);
+
   useEffect(() => {
     if (!isActive || sessionTimeLeft <= 0) return;
 
@@ -43,6 +52,32 @@ export default function Respiracao() {
     return () => clearTimeout(timer);
   }, [isActive, sessionTimeLeft, phaseTimeLeft, currentPhase]);
 
+  useEffect(() => {
+    if (sessionTimeLeft > 0) {
+      sessaoSalvaRef.current = false;
+      return;
+    }
+
+    if (sessaoSalvaRef.current || !user) return;
+
+    sessaoSalvaRef.current = true;
+    setSalvando(true);
+
+    void (async () => {
+      try {
+        await saveCompletedSession(user.uid, DURACAO_SESSAO_SEGUNDOS);
+        await inicializarMood(user.uid);
+      } catch {
+        Alert.alert(
+          'Aviso',
+          'Sessão concluída, mas não foi possível salvar o progresso. Tente novamente mais tarde.'
+        );
+      } finally {
+        setSalvando(false);
+      }
+    })();
+  }, [sessionTimeLeft, user, inicializarMood]);
+
   const formatTime = (totalSeconds: number) => {
     const minutes = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
     const seconds = (totalSeconds % 60).toString().padStart(2, '0');
@@ -57,18 +92,19 @@ export default function Respiracao() {
     return 'Expire';
   };
 
+  const sessaoConcluida = sessionTimeLeft <= 0;
+
   return (
     <SafeAreaView style={styles.container}>
-      
       <View style={styles.header}>
-        <Pressable 
+        <Pressable
           style={({ pressed }) => [styles.backButton, pressed && styles.pressedEffect]}
           onPress={() => router.back()}
         >
           <ArrowLeft size={24} color={Colors.fontPrimary} />
         </Pressable>
         <Text style={styles.headerTitle}>Respiração</Text>
-        <View style={{ width: 24 }} /> 
+        <View style={{ width: 24 }} />
       </View>
 
       <View style={styles.circleContainer}>
@@ -80,7 +116,6 @@ export default function Respiracao() {
         </View>
       </View>
 
-
       <View style={styles.stepsCard}>
         <StepItem label="Inspire" time="4s" isActive={currentPhase === 'inspire'} />
         <ArrowRight size={16} color={Colors.fontTertiary} />
@@ -89,28 +124,34 @@ export default function Respiracao() {
         <StepItem label="Expire" time="8s" isActive={currentPhase === 'expire'} />
       </View>
 
-
       <View style={styles.infoContainer}>
         <Text style={styles.instructionText}>
-          {sessionTimeLeft > 0 ? `Feche os olhos e siga o\nritmo` : `Sessão concluída!\nMuito bem.`}
+          {!sessaoConcluida
+            ? 'Feche os olhos e siga o\nritmo'
+            : salvando
+              ? 'Salvando seu\nprogresso...'
+              : 'Sessão concluída!\nMuito bem.'}
         </Text>
         <Text style={styles.timerText}>{formatTime(sessionTimeLeft)}</Text>
       </View>
 
-      <Pressable 
+      <Pressable
         style={({ pressed }) => [
-          styles.pauseButton, 
+          styles.pauseButton,
           pressed && styles.pressedEffect,
-          !isActive && sessionTimeLeft > 0 && styles.resumeButton 
+          !isActive && sessionTimeLeft > 0 && styles.resumeButton,
         ]}
         onPress={togglePause}
-        disabled={sessionTimeLeft <= 0} 
+        disabled={sessaoConcluida}
       >
         <Text style={styles.pauseButtonText}>
-          {sessionTimeLeft <= 0 ? 'Finalizado' : (isActive ? 'Pausar' : 'Retomar')}
+          {sessaoConcluida
+            ? 'Finalizado'
+            : isActive
+              ? 'Pausar'
+              : 'Retomar'}
         </Text>
       </Pressable>
-
     </SafeAreaView>
   );
 }
@@ -118,7 +159,7 @@ export default function Respiracao() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.accentSecondary, 
+    backgroundColor: Colors.accentSecondary,
     paddingHorizontal: 24,
   },
   header: {
@@ -205,7 +246,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   resumeButton: {
-    backgroundColor: Colors.fontPrimary, 
+    backgroundColor: Colors.fontPrimary,
   },
   pauseButtonText: {
     color: Colors.white,
@@ -214,6 +255,6 @@ const styles = StyleSheet.create({
   },
   pressedEffect: {
     opacity: 0.6,
-    transform: [{ scale: 0.98 }]
-  }
+    transform: [{ scale: 0.98 }],
+  },
 });

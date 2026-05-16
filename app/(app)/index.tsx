@@ -8,12 +8,25 @@ import { Colors } from '../../constants/colors';
 import { Fonts } from '../../constants/fonts';
 
 import { useMoodStore } from '../../store/useMoodStore';
+import { useAuth } from '../../contexts/AuthContext';
 
 export default function Home() {
   const router = useRouter();
+  const { profile, user } = useAuth();
 
   const humorDeHoje = useMoodStore((state) => state.humorDeHoje);
+  const saving = useMoodStore((state) => state.saving);
   const salvarHumorHoje = useMoodStore((state) => state.salvarHumorHoje);
+
+  const handleHumor = (humor: 'ruim' | 'neutro' | 'bem') => {
+    if (!user || saving) return;
+    salvarHumorHoje(user.uid, humor);
+  };
+
+  const primeiroNome =
+    profile?.nome?.split(' ')[0] ??
+    user?.email?.split('@')[0] ??
+    'estudante';
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -26,7 +39,7 @@ export default function Home() {
         {/* Header */}
         <View style={styles.headerContainer}>
           <View style={styles.headerTextContainer}>
-            <Text style={styles.greeting}>Olá, Ana Clara</Text>
+            <Text style={styles.greeting}>Olá, {primeiroNome}</Text>
             <Text style={styles.subGreeting}>Como você está hoje?</Text>
           </View>
           
@@ -40,7 +53,8 @@ export default function Home() {
 
         <View style={styles.moodCard}>
           <Pressable 
-            onPress={() => salvarHumorHoje('ruim')}
+            onPress={() => handleHumor('ruim')}
+            disabled={saving}
             style={({ pressed }) => [
               styles.moodItem, 
               pressed && styles.pressedEffect,
@@ -52,7 +66,8 @@ export default function Home() {
           </Pressable>
           
           <Pressable 
-            onPress={() => salvarHumorHoje('neutro')}
+            onPress={() => handleHumor('neutro')}
+            disabled={saving}
             style={({ pressed }) => [
               styles.moodItem, 
               pressed && styles.pressedEffect,
@@ -64,7 +79,8 @@ export default function Home() {
           </Pressable>
           
           <Pressable 
-            onPress={() => salvarHumorHoje('bem')}
+            onPress={() => handleHumor('bem')}
+            disabled={saving}
             style={({ pressed }) => [
               styles.moodItem, 
               pressed && styles.pressedEffect,

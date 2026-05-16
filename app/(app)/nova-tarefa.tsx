@@ -1,24 +1,34 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, Pressable, KeyboardAvoidingView, Platform } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TextInput,
+  Pressable,
+  KeyboardAvoidingView,
+  Platform,
+  ActivityIndicator,
+  Alert,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft, Check } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 
 import { Colors } from '../../constants/colors';
 import { Fonts } from '../../constants/fonts';
+import { useAuth } from '../../contexts/AuthContext';
 import { useTaskStore } from '../../store/useTaskStore';
 
 export default function NovaTarefa() {
   const router = useRouter();
-  const { adicionarTarefa } = useTaskStore();
+  const { user } = useAuth();
+  const { adicionarTarefa, saving } = useTaskStore();
 
   const [titulo, setTitulo] = useState('');
   const [horario, setHorario] = useState('');
 
-  // Função para validar e formatar o horário,tipo 12:30
   const handleHorarioChange = (texto: string) => {
     const numerico = texto.replace(/\D/g, '');
-
     let formatado = numerico;
     if (numerico.length > 2) {
       formatado = `${numerico.slice(0, 2)}:${numerico.slice(2, 4)}`;
@@ -26,35 +36,39 @@ export default function NovaTarefa() {
     setHorario(formatado);
   };
 
-  const handleSalvar = () => {
-    if (titulo.trim() === '') return;
+  const handleSalvar = async () => {
+    if (!user || titulo.trim() === '') return;
 
     const horarioFinal = horario.trim() === '' ? 'Livre' : horario;
 
-    adicionarTarefa(titulo, horarioFinal);
-
-    router.back();
+    try {
+      await adicionarTarefa(user.uid, titulo.trim(), horarioFinal);
+      router.back();
+    } catch {
+      Alert.alert('Erro', 'Não foi possível criar a tarefa. Tente novamente.');
+    }
   };
+
+  const disabled = titulo.trim() === '' || saving;
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <KeyboardAvoidingView 
-        style={styles.container} 
+      <KeyboardAvoidingView
+        style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        
-        {/* Header */}
         <View style={styles.header}>
-          <Pressable onPress={() => router.back()} style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}>
+          <Pressable
+            onPress={() => router.back()}
+            style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}
+          >
             <ArrowLeft size={24} color={Colors.fontPrimary} />
           </Pressable>
           <Text style={styles.headerTitle}>Criar Tarefa</Text>
           <View style={{ width: 24 }} />
         </View>
 
-        {/* Formulário */}
         <View style={styles.formContainer}>
-          
           <View style={styles.inputGroup}>
             <Text style={styles.label}>O que você precisa fazer?</Text>
             <TextInput
@@ -79,25 +93,28 @@ export default function NovaTarefa() {
               maxLength={5}
             />
           </View>
-
         </View>
 
-        {/* Botão Salvar */}
         <View style={styles.footer}>
-          <Pressable 
+          <Pressable
             style={({ pressed }) => [
-              styles.saveButton, 
+              styles.saveButton,
               pressed && styles.pressed,
-              titulo.trim() === '' && styles.saveButtonDisabled
+              disabled && styles.saveButtonDisabled,
             ]}
             onPress={handleSalvar}
-            disabled={titulo.trim() === ''}
+            disabled={disabled}
           >
-            <Check size={20} color={Colors.white} style={styles.saveIcon} />
-            <Text style={styles.saveButtonText}>Criar Tarefa</Text>
+            {saving ? (
+              <ActivityIndicator color={Colors.white} />
+            ) : (
+              <>
+                <Check size={20} color={Colors.white} style={styles.saveIcon} />
+                <Text style={styles.saveButtonText}>Criar Tarefa</Text>
+              </>
+            )}
           </Pressable>
         </View>
-
       </KeyboardAvoidingView>
     </SafeAreaView>
   );

@@ -7,24 +7,44 @@ import { Fonts } from '../constants/fonts';
 interface CardDesabafoProps {
   texto: string;
   likes: number;
+  curtiu?: boolean;
+  onLike?: () => void;
+  disabled?: boolean;
 }
 
-export default function CardDesabafo({ texto, likes }: CardDesabafoProps) {
+export default function CardDesabafo({
+  texto,
+  likes,
+  curtiu = false,
+  onLike,
+  disabled = false,
+}: CardDesabafoProps) {
   return (
     <View style={styles.card}>
       <View style={styles.header}>
         <CircleUser size={24} color={Colors.accentPrimary} />
-        <Text style={styles.username}>Anonimo</Text>
+        <Text style={styles.username}>Anônimo</Text>
       </View>
 
       <Text style={styles.bodyText}>{texto}</Text>
 
       <View style={styles.footer}>
-        <Pressable 
-          style={({ pressed }) => [styles.likeButton, pressed && styles.pressedEffect]}
+        <Pressable
+          style={({ pressed }) => [
+            styles.likeButton,
+            curtiu && styles.likeButtonActive,
+            pressed && styles.pressedEffect,
+            disabled && styles.likeButtonDisabled,
+          ]}
+          onPress={onLike}
+          disabled={disabled || !onLike}
         >
-          <ThumbsUp size={18} color={Colors.accentPrimary} />
-          <Text style={styles.likeText}>{likes}</Text>
+          <ThumbsUp
+            size={18}
+            color={curtiu ? Colors.white : Colors.accentPrimary}
+            fill={curtiu ? Colors.white : 'transparent'}
+          />
+          <Text style={[styles.likeText, curtiu && styles.likeTextActive]}>{likes}</Text>
         </Pressable>
       </View>
     </View>
@@ -67,11 +87,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius: 20,
   },
+  likeButtonActive: {
+    backgroundColor: Colors.accentPrimary,
+  },
+  likeButtonDisabled: {
+    opacity: 0.6,
+  },
   likeText: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 14,
     color: Colors.fontPrimary,
     marginLeft: 8,
+  },
+  likeTextActive: {
+    color: Colors.white,
   },
   pressedEffect: {
     opacity: 0.7,

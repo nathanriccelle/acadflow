@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, Alert } from 'react-native';
 import { ArrowLeft, Flame, Bell, Lock, LogOut } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -9,11 +9,42 @@ import { Fonts } from '../../constants/fonts';
 import GraficoHumor from '../../components/GraficoHumor';
 
 import { useMoodStore } from '../../store/useMoodStore';
+import { useAuth } from '../../contexts/AuthContext';
+import { signOut } from '../../services/authService';
 
 export default function Perfil() {
   const router = useRouter();
+  const { profile, user } = useAuth();
 
   const historicoSemanal = useMoodStore((state) => state.historicoSemanal);
+  const streak = useMoodStore((state) => state.streak);
+  const sessoesRespiracaoSemana = useMoodStore((state) => state.sessoesRespiracaoSemana);
+  const moodLoading = useMoodStore((state) => state.loading);
+
+  const streakLabel =
+    streak === 0
+      ? 'Faça seu check-in ou respire hoje'
+      : `${streak} ${streak === 1 ? 'dia de autocuidado' : 'dias de autocuidado'}`;
+
+  const respiracaoLabel =
+    sessoesRespiracaoSemana === 0
+      ? 'Nenhuma sessão de respiração esta semana'
+      : `${sessoesRespiracaoSemana} ${
+          sessoesRespiracaoSemana === 1 ? 'sessão de respiração' : 'sessões de respiração'
+        } esta semana`;
+
+  const nomeExibicao = profile?.nome ?? user?.email ?? 'Usuário';
+  const cursoExibicao =
+    profile?.curso?.trim() || 'Complete seu curso no cadastro';
+
+  const handleLogout = async () => {
+    try {
+      await signOut();
+      router.replace('/login');
+    } catch {
+      Alert.alert('Erro', 'Não foi possível sair. Tente novamente.');
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -33,13 +64,18 @@ export default function Perfil() {
           </View>
 
           <View style={styles.userInfo}>
-            <Text style={styles.userName}>Ana clara</Text>
-            <Text style={styles.userCourse}>Sistemas para Internet - 5º semestre</Text>
+            <Text style={styles.userName}>{nomeExibicao}</Text>
+            <Text style={styles.userCourse}>{cursoExibicao}</Text>
 
             <View style={styles.streakBadge}>
               <Flame size={18} color={Colors.fontPrimary} strokeWidth={2.5} />
-              <Text style={styles.streakText}>7 dias consecutivos</Text>
+              <Text style={styles.streakText}>
+                {moodLoading ? 'Carregando...' : streakLabel}
+              </Text>
             </View>
+            {!moodLoading && (
+              <Text style={styles.respiracaoHint}>{respiracaoLabel}</Text>
+            )}
           </View>
 
         </View>
@@ -62,7 +98,10 @@ export default function Perfil() {
             <Text style={styles.menuText}>Privacidade de Dados</Text>
           </Pressable>
 
-          <Pressable style={({ pressed }) => [styles.menuItem, pressed && styles.pressedEffect]}>
+          <Pressable
+            style={({ pressed }) => [styles.menuItem, pressed && styles.pressedEffect]}
+            onPress={handleLogout}
+          >
             <LogOut size={20} color="#FF4B4B" />
             <Text style={[styles.menuText, { color: '#FF4B4B' }]}>Sair</Text>
           </Pressable>
@@ -131,6 +170,13 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.fontPrimary,
     marginLeft: 8,
+  },
+  respiracaoHint: {
+    fontFamily: Fonts.bodyMedium,
+    fontSize: 13,
+    color: Colors.fontSecondary,
+    marginTop: 12,
+    textAlign: 'center',
   },
   scrollContent: {
     padding: 24,

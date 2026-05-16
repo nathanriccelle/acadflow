@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, FlatList, Pressable } from 'react-native';
+import { View, Text, StyleSheet, FlatList, Pressable, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft, Plus, ClipboardList } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
@@ -7,27 +7,44 @@ import { useRouter } from 'expo-router';
 import { Colors } from '../../constants/colors';
 import { Fonts } from '../../constants/fonts';
 import ItemTarefa from '../../components/ItemTarefa';
+import { useAuth } from '../../contexts/AuthContext';
 import { useTaskStore } from '../../store/useTaskStore';
 
 export default function MinhasTarefas() {
   const router = useRouter();
-  const { tarefas, alternarTarefa, removerTarefa } = useTaskStore();
+  const { user } = useAuth();
+  const { tarefas, loading, saving, alternarTarefa, removerTarefa } = useTaskStore();
 
-  const concluidas = tarefas.filter(t => t.concluida).length;
+  const concluidas = tarefas.filter((t) => t.concluida).length;
   const total = tarefas.length;
+
+  const handleToggle = (id: string) => {
+    if (!user || saving) return;
+    alternarTarefa(user.uid, id);
+  };
+
+  const handleDelete = (id: string) => {
+    if (!user || saving) return;
+    removerTarefa(user.uid, id);
+  };
 
   const EstadoVazio = () => (
     <View style={styles.vazioContainer}>
       <ClipboardList size={48} color={Colors.fontTertiary} />
       <Text style={styles.vazioTitulo}>Nenhuma tarefa ainda</Text>
-      <Text style={styles.vazioSubtitulo}>Clique no botão + para adicionar sua primeira tarefa do dia.</Text>
+      <Text style={styles.vazioSubtitulo}>
+        Clique no botão + para adicionar sua primeira tarefa do dia.
+      </Text>
     </View>
   );
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()} style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}>
+        <Pressable
+          onPress={() => router.back()}
+          style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}
+        >
           <ArrowLeft size={24} color={Colors.fontPrimary} />
         </Pressable>
         <Text style={styles.headerTitle}>Minhas Tarefas</Text>
@@ -36,13 +53,18 @@ export default function MinhasTarefas() {
 
       <Text style={styles.subtitle}>Organize sua rotina com calma</Text>
 
-      {/* Card de Progresso */}
       <View style={styles.progressCard}>
         <View>
           <Text style={styles.progressTitle}>{total} tarefas para hoje</Text>
           <Text style={styles.progressSubtitle}>Você está indo muito bem.</Text>
         </View>
-        <Text style={styles.progressNumber}>{concluidas}/{total}</Text>
+        {loading ? (
+          <ActivityIndicator color={Colors.accentPrimary} />
+        ) : (
+          <Text style={styles.progressNumber}>
+            {concluidas}/{total}
+          </Text>
+        )}
       </View>
 
       <Text style={styles.sectionTitle}>A fazer</Text>
@@ -51,21 +73,20 @@ export default function MinhasTarefas() {
         data={tarefas}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
-          <ItemTarefa 
-            titulo={item.titulo} 
-            horario={item.horario} 
+          <ItemTarefa
+            titulo={item.titulo}
+            horario={item.horario}
             concluida={item.concluida}
-            onPress={() => alternarTarefa(item.id)}
-            onDelete={() => removerTarefa(item.id)}
+            onPress={() => handleToggle(item.id)}
+            onDelete={() => handleDelete(item.id)}
           />
         )}
         contentContainerStyle={tarefas.length === 0 ? styles.listEmpty : styles.list}
         showsVerticalScrollIndicator={false}
-        ListEmptyComponent={EstadoVazio}
+        ListEmptyComponent={loading ? null : EstadoVazio}
       />
 
-      {/* Botão Nova Tarefa */}
-      <Pressable 
+      <Pressable
         style={({ pressed }) => [styles.fab, pressed && styles.pressed]}
         onPress={() => router.push('/nova-tarefa')}
       >
@@ -78,88 +99,91 @@ export default function MinhasTarefas() {
 
 const styles = StyleSheet.create({
   safeArea: {
-     flex: 1, backgroundColor: Colors.accentSecondary 
-    },
+    flex: 1,
+    backgroundColor: Colors.accentSecondary,
+  },
   header: {
-     flexDirection: 'row', 
-     alignItems: 'center', 
-     justifyContent: 'space-between', 
-     paddingHorizontal: 24, 
-     paddingTop: 20 
-    },
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 24,
+    paddingTop: 20,
+  },
   backButton: {
-     padding: 4 
-    },
-  headerTitle: { 
-    fontFamily: Fonts.titleBold, 
-    fontSize: 20, 
-    color: Colors.fontPrimary 
+    padding: 4,
   },
-  subtitle: { 
-    fontFamily: Fonts.bodyMedium, 
-    fontSize: 16, 
-    color: Colors.fontSecondary, 
-    textAlign: 'center', marginTop: 20, 
-    marginBottom: 30 
+  headerTitle: {
+    fontFamily: Fonts.titleBold,
+    fontSize: 20,
+    color: Colors.fontPrimary,
   },
-  progressCard: { 
-    backgroundColor: Colors.white, 
-    marginHorizontal: 24, 
-    padding: 24, borderRadius: 24, 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
-    alignItems: 'center', 
-    marginBottom: 32 
+  subtitle: {
+    fontFamily: Fonts.bodyMedium,
+    fontSize: 16,
+    color: Colors.fontSecondary,
+    textAlign: 'center',
+    marginTop: 20,
+    marginBottom: 30,
   },
-  progressTitle: { 
-    fontFamily: Fonts.titleBold, 
-    fontSize: 18, 
-    color: Colors.fontPrimary 
+  progressCard: {
+    backgroundColor: Colors.white,
+    marginHorizontal: 24,
+    padding: 24,
+    borderRadius: 24,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 32,
   },
-  progressSubtitle: { 
-    fontFamily: Fonts.bodyMedium, 
-    fontSize: 14, 
-    color: Colors.fontTertiary, 
-    marginTop: 4 
+  progressTitle: {
+    fontFamily: Fonts.titleBold,
+    fontSize: 18,
+    color: Colors.fontPrimary,
   },
-  progressNumber: { 
-    fontFamily: Fonts.titleBold, 
-    fontSize: 20, 
-    color: Colors.accentPrimary 
+  progressSubtitle: {
+    fontFamily: Fonts.bodyMedium,
+    fontSize: 14,
+    color: Colors.fontTertiary,
+    marginTop: 4,
   },
-  sectionTitle: { 
-    fontFamily: Fonts.titleBold, 
-    fontSize: 18, 
-    color: Colors.fontPrimary, 
-    marginHorizontal: 24, 
-    marginBottom: 16 
+  progressNumber: {
+    fontFamily: Fonts.titleBold,
+    fontSize: 20,
+    color: Colors.accentPrimary,
   },
-  list: { 
-    paddingHorizontal: 24, 
-    paddingBottom: 100 
+  sectionTitle: {
+    fontFamily: Fonts.titleBold,
+    fontSize: 18,
+    color: Colors.fontPrimary,
+    marginHorizontal: 24,
+    marginBottom: 16,
   },
-  fab: { 
-    position: 'absolute', 
-    bottom: 30, right: 24, 
-    backgroundColor: Colors.accentPrimary, 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    paddingVertical: 14, 
-    paddingHorizontal: 20, 
-    borderRadius: 16, 
-    elevation: 5 
+  list: {
+    paddingHorizontal: 24,
+    paddingBottom: 100,
   },
-  fabText: { 
-    fontFamily: Fonts.titleBold, 
-    color: Colors.white, 
-    marginLeft: 8, 
-    fontSize: 16 
+  fab: {
+    position: 'absolute',
+    bottom: 30,
+    right: 24,
+    backgroundColor: Colors.accentPrimary,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 16,
+    elevation: 5,
   },
-  pressed: { 
-    opacity: 0.7, 
-    transform: [{ scale: 0.95 }] 
+  fabText: {
+    fontFamily: Fonts.titleBold,
+    color: Colors.white,
+    marginLeft: 8,
+    fontSize: 16,
   },
-
+  pressed: {
+    opacity: 0.7,
+    transform: [{ scale: 0.95 }],
+  },
   listEmpty: {
     flex: 1,
     justifyContent: 'center',

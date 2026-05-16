@@ -14,10 +14,12 @@ import {
   BeVietnamPro_600SemiBold,
   BeVietnamPro_700Bold,
 } from '@expo-google-fonts/be-vietnam-pro';
+import { AuthProvider, useAuth } from '../contexts/AuthContext';
 
 SplashScreen.preventAutoHideAsync();
 
-export default function RootLayout() {
+function RootNavigator() {
+  const { loading: authLoading } = useAuth();
   const [fontsLoaded] = useFonts({
     PlusJakartaSans_400Regular,
     PlusJakartaSans_500Medium,
@@ -29,11 +31,21 @@ export default function RootLayout() {
     BeVietnamPro_700Bold,
   });
 
-  useEffect(() => {
-    if (fontsLoaded) SplashScreen.hideAsync();
-  }, [fontsLoaded]);
+  const ready = fontsLoaded && !authLoading;
 
-  if (!fontsLoaded) return null;
+  useEffect(() => {
+    if (ready) SplashScreen.hideAsync();
+  }, [ready]);
+
+  if (!ready) return null;
 
   return <Slot />;
+}
+
+export default function RootLayout() {
+  return (
+    <AuthProvider>
+      <RootNavigator />
+    </AuthProvider>
+  );
 }

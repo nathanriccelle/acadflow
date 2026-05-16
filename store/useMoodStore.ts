@@ -1,42 +1,61 @@
 import { create } from 'zustand';
 import { DiaHumor } from '../components/GraficoHumor';
-
+import { loadMoodData, saveMoodCheckin } from '../services/moodService';
+import type { HumorTipo } from '../types/mood';
+import { buildEmptyWeek, buildWeeklyChart } from '../utils/moodUtils';
 
 interface MoodStoreData {
+  humorDeHoje: HumorTipo | null;
   historicoSemanal: DiaHumor[];
-  humorDeHoje: string | null;
-  salvarHumorHoje: (humor: 'ruim' | 'neutro' | 'bem') => void;
+  streak: number;
+  sessoesRespiracaoSemana: number;
+  completouRespiracaoHoje: boolean;
+  loading: boolean;
+  saving: boolean;
+  inicializar: (userId: string) => Promise<void>;
+  salvarHumorHoje: (userId: string, humor: HumorTipo) => Promise<void>;
+  reset: () => void;
 }
 
-export const useMoodStore = create<MoodStoreData>((set) => ({
-  
-  humorDeHoje: null,
-  historicoSemanal: [
-    { dia: 'S', nivel: 45, destaque: true },
-    { dia: 'T', nivel: 60, destaque: true },
-    { dia: 'Q', nivel: 30, destaque: false },
-    { dia: 'Q', nivel: 90, destaque: true },
-    { dia: 'S', nivel: 70, destaque: true },
-    { dia: 'S', nivel: 20, destaque: false },
-    { dia: 'D', nivel: 0, destaque: false },
-  ],
+const initialState = {
+  humorDeHoje: null as HumorTipo | null,
+  historicoSemanal: buildEmptyWeek(),
+  streak: 0,
+  sessoesRespiracaoSemana: 0,
+  completouRespiracaoHoje: false,
+  loading: false,
+  saving: false,
+};
 
-  salvarHumorHoje: (humor) => set((state) => {
-    
+export const useMoodStore = create<MoodStoreData>((set, get) => ({
+  ...initialState,
 
-    let nivel = 0;
-    let destaque = false;
+  reset: () => set({ ...initialState, historicoSemanal: buildEmptyWeek() }),
 
-    if (humor === 'ruim') { nivel = 20; destaque = false; }
-    else if (humor === 'neutro') { nivel = 50; destaque = false; }
-    else if (humor === 'bem') { nivel = 100; destaque = true; }
+  inicializar: async (userId: string) => {
+    set({ loading: true });
+    try {
+      const data = await loadMoodData(userId);
+      set({
+        humorDeHoje: data.humorDeHoje,
+        historicoSemanal: buildWeeklyChart(data.checkins),
+        streak: data.streak,
+        sessoesRespiracaoSemana: data.sessoesRespiracaoSemana,
+        completouRespiracaoHoje: data.completouRespiracaoHoje,
+        loading: false,
+      });
+    } catch {
+      set({ loading: false });
+    }
+  },
 
-    const novoHistorico = [...state.historicoSemanal];
-    novoHistorico[novoHistorico.length - 1] = { dia: 'D', nivel, destaque };
-
-    return {
-      humorDeHoje: humor,
-      historicoSemanal: novoHistorico
-    };
-  }),
+  salvarHumorHoje: async (userId: string, humor: HumorTipo) => {
+    set({ saving: true });
+    try {
+      await saveMoodCheckin(userId, humor);
+      await get().inicializar(userId);
+    } finally {
+      set({ saving: false });
+    }
+  },
 }));

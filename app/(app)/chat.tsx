@@ -1,12 +1,13 @@
-import React, { useState, useRef } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  TextInput, 
-  Pressable, 
-  FlatList, 
-  KeyboardAvoidingView, 
+import React, { useEffect, useRef } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TextInput,
+  Pressable,
+  FlatList,
+  KeyboardAvoidingView,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft, Send } from 'lucide-react-native';
@@ -15,67 +16,48 @@ import { useRouter } from 'expo-router';
 import { Colors } from '../../constants/colors';
 import { Fonts } from '../../constants/fonts';
 import BalaoMensagem from '../../components/BalaoMensagem';
-
-interface Mensagem {
-  id: string;
-  texto: string;
-  isUsuario: boolean;
-}
-// As respostas do Bot
-const RESPOSTAS_BOT = [
-  "Compreendo perfeitamente. Como isso fez você se sentir no momento?",
-  "Entendo. É muito comum se sentir assim diante dessa situação.",
-  "Estou aqui para ouvir você. Pode me dar mais detalhes?",
-  "Isso parece ter sido desafiador. O que você acha que ajudaria agora?",
-  "Agradeço por compartilhar isso comigo. Respire fundo, estamos juntos nessa."
-];
+import ChatAviso from '../../components/ChatAviso';
+import { useAuth } from '../../contexts/AuthContext';
+import { useChatStore } from '../../store/useChatStore';
 
 export default function Chat() {
   const router = useRouter();
-  
+  const { user, profile } = useAuth();
   const flatListRef = useRef<FlatList>(null);
 
-  // Estados
-  const [mensagemAtual, setMensagemAtual] = useState('');
-  const [listaMensagens, setListaMensagens] = useState<Mensagem[]>([
-    { id: '1', texto: 'Olá, Ana Clara! Como posso te ajudar hoje?', isUsuario: false }
-  ]);
+  const {
+    mensagens,
+    loading,
+    enviando,
+    botDigitando,
+    inicializar,
+    enviarMensagem,
+  } = useChatStore();
 
-  // Função para enviar mensagem
-  const enviarMensagem = () => {
-    if (mensagemAtual.trim() === '') return;
-    const novaMsgUsuario: Mensagem = {
-      id: Math.random().toString(),
-      texto: mensagemAtual,
-      isUsuario: true,
-    };
+  const [mensagemAtual, setMensagemAtual] = React.useState('');
 
-    setListaMensagens((mensagensAntigas) => [...mensagensAntigas, novaMsgUsuario]);
+  const primeiroNome =
+    profile?.nome?.split(' ')[0] ?? user?.email?.split('@')[0] ?? 'estudante';
+
+  useEffect(() => {
+    if (!user) return;
+    return inicializar(user.uid, primeiroNome);
+  }, [user?.uid, primeiroNome, inicializar]);
+
+  const handleEnviar = async () => {
+    if (!user || mensagemAtual.trim() === '') return;
+    const texto = mensagemAtual;
     setMensagemAtual('');
-    // Tempo de resposta do Bot de 1,5 segundos
-    setTimeout(() => {
-      const respostaAleatoria = RESPOSTAS_BOT[Math.floor(Math.random() * RESPOSTAS_BOT.length)];
-      
-      const novaMsgBot: Mensagem = {
-        id: Math.random().toString(),
-        texto: respostaAleatoria,
-        isUsuario: false,
-      };
-
-      setListaMensagens((mensagensAntigas) => [...mensagensAntigas, novaMsgBot]);
-    }, 1500);
+    await enviarMensagem(user.uid, texto);
   };
+
+  const desabilitado = enviando || botDigitando || loading;
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <KeyboardAvoidingView 
-        style={styles.container} 
-        behavior="padding"
-      >
-        
-        {/* Header */}
+      <KeyboardAvoidingView style={styles.container} behavior="padding">
         <View style={styles.header}>
-          <Pressable 
+          <Pressable
             style={({ pressed }) => [styles.backButton, pressed && styles.pressedEffect]}
             onPress={() => router.back()}
           >
@@ -83,26 +65,44 @@ export default function Chat() {
           </Pressable>
           <View style={styles.headerInfo}>
             <Text style={styles.headerName}>Dra. Juliana</Text>
-            <Text style={styles.headerRole}>Psicóloga</Text>
+            <Text style={styles.headerRole}>Apoio virtual</Text>
           </View>
           <View style={{ width: 24 }} />
         </View>
 
-        {/* Lista de Mensagens */}
-        <FlatList
-          ref={flatListRef}
-          style={{ flex: 1 }}
-          data={listaMensagens}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.listaMensagens}
-          renderItem={({ item }) => (
-            <BalaoMensagem texto={item.texto} isUsuario={item.isUsuario} />
-          )}
-          onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
-          onLayout={() => flatListRef.current?.scrollToEnd({ animated: true })}
-        />
+        <ChatAviso />
 
-        {/* Área de Digitação */}
+        {loading ? (
+          <View style={styles.loader}>
+            <ActivityIndicator size="large" color={Colors.accentPrimary} />
+          </View>
+        ) : (
+          <FlatList
+            ref={flatListRef}
+            style={{ flex: 1 }}
+            data={mensagens}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={styles.listaMensagens}
+            renderItem={({ item }) => (
+              <BalaoMensagem texto={item.texto} isUsuario={item.isUsuario} />
+            )}
+            ListFooterComponent={
+              botDigitando ? (
+                <View style={styles.digitando}>
+                  <View style={styles.avatar} />
+                  <View style={styles.digitandoBalao}>
+                    <Text style={styles.digitandoTexto}>Digitando...</Text>
+                  </View>
+                </View>
+              ) : null
+            }
+            onContentSizeChange={() =>
+              flatListRef.current?.scrollToEnd({ animated: true })
+            }
+            onLayout={() => flatListRef.current?.scrollToEnd({ animated: true })}
+          />
+        )}
+
         <View style={styles.inputContainer}>
           <TextInput
             style={styles.textInput}
@@ -111,15 +111,24 @@ export default function Chat() {
             value={mensagemAtual}
             onChangeText={setMensagemAtual}
             multiline
+            editable={!desabilitado}
           />
-          <Pressable 
-            style={({ pressed }) => [styles.sendButton, pressed && styles.pressedEffect]}
-            onPress={enviarMensagem}
+          <Pressable
+            style={({ pressed }) => [
+              styles.sendButton,
+              pressed && styles.pressedEffect,
+              desabilitado && styles.sendButtonDisabled,
+            ]}
+            onPress={handleEnviar}
+            disabled={desabilitado || mensagemAtual.trim() === ''}
           >
-            <Send size={20} color={Colors.white} />
+            {enviando ? (
+              <ActivityIndicator color={Colors.white} size="small" />
+            ) : (
+              <Send size={20} color={Colors.white} />
+            )}
           </Pressable>
         </View>
-
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -134,7 +143,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.white,
   },
-  
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -159,9 +167,39 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.fontSecondary,
   },
+  loader: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   listaMensagens: {
     padding: 24,
     paddingBottom: 10,
+  },
+  digitando: {
+    flexDirection: 'row',
+    marginBottom: 16,
+    alignItems: 'flex-end',
+  },
+  avatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Colors.accentSecondary,
+    marginRight: 12,
+  },
+  digitandoBalao: {
+    backgroundColor: Colors.backgroundSecondary,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 20,
+    borderBottomLeftRadius: 4,
+  },
+  digitandoTexto: {
+    fontFamily: Fonts.bodyMedium,
+    fontSize: 14,
+    color: Colors.fontTertiary,
+    fontStyle: 'italic',
   },
   inputContainer: {
     flexDirection: 'row',
@@ -193,8 +231,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  sendButtonDisabled: {
+    opacity: 0.5,
+  },
   pressedEffect: {
     opacity: 0.7,
-    transform: [{ scale: 0.95 }]
-  }
+    transform: [{ scale: 0.95 }],
+  },
 });
