@@ -2,6 +2,14 @@
 
 Projeto Senac — Sistema para Internet. App de apoio ao bem-estar estudantil (humor, tarefas, mural anônimo, respiração guiada e chat de apoio virtual).
 
+## Protótipo
+
+O design e fluxo do AcadFlow foram desenhados no Figma, priorizando a acessibilidade e o bem-estar do estudante.
+
+Para navegar pelas telas e interagir com o fluxo do app, clique no botão abaixo:
+
+[![Figma](https://img.shields.io/badge/Figma_Prototype-38BDF8?style=for-the-badge&logo=figma&logoColor=white)](https://www.figma.com/proto/rwy5NgV474i9gUceHa6pyo/AcadFlow---Senac?node-id=5-452&p=f&t=szhif7qfFNeSULjx-1&scaling=min-zoom&content-scaling=fixed&page-id=0%3A1&starting-point-node-id=5%3A452) 
+
 ## Pré-requisitos
 
 - [Node.js](https://nodejs.org/) 18+
