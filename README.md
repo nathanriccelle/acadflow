@@ -1,6 +1,6 @@
 # AcadFlow
 
-Projeto Senac — Sistema para Internet. App de apoio ao bem-estar estudantil (humor, tarefas, mural anônimo, respiração guiada e chat de apoio virtual).
+Projeto Senac — Sistemas para Internet. App de apoio ao bem-estar estudantil (humor, tarefas, mural anônimo, respiração guiada e chat de apoio virtual).
 
 ## Protótipo
 
